@@ -298,18 +298,25 @@ async function renderStats() {
 let mediaRecorder = null, recChunks = [], recIdx = -1, recStream = null;
 async function toggleRecord(idx, btn) {
   if (mediaRecorder && mediaRecorder.state === 'recording') { mediaRecorder.stop(); return; }
+  // 检测录音能力（在播放器内给出可见提示，避免静默失败）
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    showHint('当前环境不支持录音（需 https 或 localhost，且允许麦克风权限）。', true); return;
+    showPlayerNote('当前浏览器不支持录音（无 getUserMedia）。请用 Chrome / Edge / Safari，并通过 https 打开。', true); return;
+  }
+  if (typeof MediaRecorder === 'undefined' || !window.MediaRecorder) {
+    showPlayerNote('当前浏览器不支持录音（MediaRecorder 不可用）。请用 Chrome / Edge / Safari。', true); return;
   }
   try { recStream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
-  catch (e) { showHint('无法访问麦克风，请在浏览器允许麦克风权限。', true); return; }
+  catch (e) {
+    showPlayerNote('无法访问麦克风：请在浏览器地址栏允许麦克风权限后重试（微信/QQ 内打开需点 ⋯ 用系统浏览器）。', true); return;
+  }
   recChunks = [];
   let mime = '';
-  if (window.MediaRecorder) {
-    if (MediaRecorder.isTypeSupported('audio/webm')) mime = 'audio/webm';
-    else if (MediaRecorder.isTypeSupported('audio/mp4')) mime = 'audio/mp4';
-  }
-  mediaRecorder = new MediaRecorder(recStream, mime ? { mimeType: mime } : undefined);
+  if (MediaRecorder.isTypeSupported('audio/webm')) mime = 'audio/webm';
+  else if (MediaRecorder.isTypeSupported('audio/mp4')) mime = 'audio/mp4';
+  let mr;
+  try { mr = new MediaRecorder(recStream, mime ? { mimeType: mime } : undefined); }
+  catch (e) { showPlayerNote('录音初始化失败（' + (e.message || e) + '）。', true); recStream.getTracks().forEach(t => t.stop()); return; }
+  mediaRecorder = mr;
   recIdx = idx;
   mediaRecorder.ondataavailable = (e) => { if (e.data && e.data.size) recChunks.push(e.data); };
   mediaRecorder.onstop = async () => {
