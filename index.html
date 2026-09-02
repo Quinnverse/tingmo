@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>听墨 · 把文字读给你听</title>
+  <meta name="description" content="听墨 —— 把要背的文字转成语音，带同步文稿，可录音自背、按日周月记录，像听播客一样反复听。" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&family=Noto+Serif+SC:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div id="app">
+
+    <!-- 文库（首页） -->
+    <section id="view-library" class="view">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark">墨</span>
+          <span class="brand-name">听墨</span>
+        </div>
+        <span class="topbar-spacer"></span>
+        <span id="home-today" class="home-pill">今日 0 句</span>
+        <button id="btn-stats" class="btn-icon">📊 记录</button>
+        <button id="btn-new" class="btn-primary">＋ 导入</button>
+      </header>
+
+      <!-- Hero（无内容时） -->
+      <div id="hero" class="hero" hidden>
+        <div class="hero-glow"></div>
+        <h1 class="hero-h">把要背的文字<br/>听它读给你听</h1>
+        <p class="hero-p">粘贴或导入文字，自动分句朗读 · 带同步文稿 · 录音自背 · 按日 / 周 / 月记录。</p>
+        <div class="hero-actions">
+          <button id="btn-new-hero" class="btn-primary lg">＋ 导入第一段</button>
+          <button id="btn-demo" class="btn-ghost lg">▶ 试听示例</button>
+        </div>
+      </div>
+
+      <!-- 继续听（有内容时） -->
+      <div id="resume" class="resume" hidden>
+        <div class="resume-label">继续听</div>
+        <div id="resume-card" class="resume-card">
+          <div id="resume-cover" class="resume-cover">墨</div>
+          <div class="resume-body">
+            <div id="resume-title" class="resume-title">—</div>
+            <div id="resume-meta" class="resume-meta">—</div>
+          </div>
+          <div class="resume-play">▶</div>
+        </div>
+      </div>
+
+      <div id="lib-head" class="section-head">
+        <h2>我的文库</h2>
+        <span id="lib-count" class="section-sub">0 篇</span>
+      </div>
+
+      <div id="item-list" class="item-list"></div>
+
+      <!-- 功能亮点（无内容时） -->
+      <div id="features" class="features" hidden>
+        <div class="feat">
+          <div class="feat-ico">📜</div>
+          <div class="feat-t">带文稿听读</div>
+          <div class="feat-d">当前句高亮 + 自动滚动，点哪句从哪句读，0.75×–2× 倍速自由调。</div>
+        </div>
+        <div class="feat">
+          <div class="feat-ico">🎤</div>
+          <div class="feat-t">录音自背</div>
+          <div class="feat-d">听完一句录一句，回放听自己背的，再标记「会了」。</div>
+        </div>
+        <div class="feat wide">
+          <div class="feat-ico">📊</div>
+          <div class="feat-t">听读记录</div>
+          <div class="feat-d">按日 / 周 / 月统计你听了多少句，看得见每天的坚持。</div>
+        </div>
+      </div>
+
+      <div id="empty-state" class="empty-state" hidden>
+        <div class="empty-glyph">🎧</div>
+        <p class="empty-title">还没有听读内容</p>
+        <p class="empty-desc">导入第一段文字，或先点上方「试听示例」。</p>
+      </div>
+
+      <footer class="app-foot">数据仅保存在本机浏览器 · 听墨 v1.2</footer>
+    </section>
+
+    <!-- 导入 -->
+    <section id="view-import" class="view" hidden>
+      <header class="topbar">
+        <button id="btn-import-back" class="btn-icon">‹ 返回</button>
+        <div class="topbar-title">导入文字</div>
+        <span class="topbar-spacer"></span>
+      </header>
+
+      <div class="import-body">
+        <input id="import-title" class="title-input" placeholder="给这段内容起个名字（如：考研作文模板 / 古文段）" />
+        <textarea id="import-text" class="text-input" placeholder="把要听的文字粘贴到这里……
+支持多段、中英文混排，导入后会自动按句切分。"></textarea>
+
+        <div class="import-actions">
+          <label class="btn-ghost file-label">
+            📄 导入文件
+            <input id="import-file" type="file" accept=".txt,.md,.markdown,.pdf,.docx,text/plain" hidden />
+          </label>
+          <button id="btn-save" class="btn-primary">保存并开始听 →</button>
+        </div>
+
+        <div id="import-hint" class="import-hint" hidden></div>
+      </div>
+    </section>
+
+    <!-- 听读记录 -->
+    <section id="view-stats" class="view" hidden>
+      <header class="topbar">
+        <button id="btn-stats-back" class="btn-icon">‹ 返回</button>
+        <div class="topbar-title">听读记录</div>
+        <span class="topbar-spacer"></span>
+      </header>
+
+      <div class="stats-body">
+        <div class="stat-cards">
+          <div class="stat-card"><div class="stat-num" id="stat-today">0</div><div class="stat-label">今日 · 句</div></div>
+          <div class="stat-card"><div class="stat-num" id="stat-week">0</div><div class="stat-label">本周 · 句</div></div>
+          <div class="stat-card"><div class="stat-num" id="stat-month">0</div><div class="stat-label">本月 · 句</div></div>
+        </div>
+        <div class="stat-cards">
+          <div class="stat-card"><div class="stat-num" id="stat-items">0</div><div class="stat-label">累计内容</div></div>
+          <div class="stat-card"><div class="stat-num" id="stat-days">0</div><div class="stat-label">打卡天数</div></div>
+          <div class="stat-card"><div class="stat-num" id="stat-mastered">0</div><div class="stat-label">已会句子</div></div>
+        </div>
+
+        <h3 class="stats-h">最近 7 天</h3>
+        <div id="stat-week-list" class="week-list"></div>
+      </div>
+    </section>
+
+    <!-- 听读（播放器） -->
+    <section id="view-player" class="view" hidden>
+      <header class="topbar">
+        <button id="btn-player-back" class="btn-icon">‹ 文库</button>
+        <div id="player-title" class="topbar-title">标题</div>
+        <button id="btn-player-del" class="btn-icon danger">删除</button>
+      </header>
+
+      <div class="player-hero">
+        <div class="hero-cover"><span class="hero-glyph">墨</span></div>
+        <div id="player-sub" class="player-sub">— 句 / — 句</div>
+      </div>
+
+      <div class="progress-wrap">
+        <div id="progress-bar" class="progress-bar">
+          <div id="progress-fill" class="progress-fill"></div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button id="btn-prev" class="ctrl-btn" title="上一句">⏮</button>
+        <button id="btn-play" class="ctrl-play" title="播放 / 暂停">▶</button>
+        <button id="btn-next" class="ctrl-btn" title="下一句">⏭</button>
+        <button id="btn-replay" class="ctrl-btn" title="重读当前句">↺</button>
+      </div>
+
+      <div class="player-toolbar">
+        <div class="speed-group" id="speed-group">
+          <button class="speed-btn" data-rate="0.75">0.75×</button>
+          <button class="speed-btn active" data-rate="1">1×</button>
+          <button class="speed-btn" data-rate="1.25">1.25×</button>
+          <button class="speed-btn" data-rate="1.5">1.5×</button>
+          <button class="speed-btn" data-rate="2">2×</button>
+        </div>
+        <button id="btn-loop" class="chip-toggle" title="单句循环">🔁 单句循环</button>
+      </div>
+
+      <p class="transcript-tip">点任意句子可跳转 · 每句末尾可 🎤 录背 / ▶ 回放 / ○ 标记会了</p>
+
+      <div id="transcript" class="transcript"></div>
+    </section>
+
+  </div>
+
+  <script src="./vendor/pdf.min.js"></script>
+  <script src="./vendor/mammoth.browser.min.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
