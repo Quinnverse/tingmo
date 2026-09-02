@@ -97,6 +97,13 @@ if (synth) {
   setTimeout(loadVoices, 300);   // 移动端首次常为空，延迟再取
   setTimeout(loadVoices, 1500);
 }
+// 浏览器不支持 SpeechSynthesis 时，给针对性提示（多为微信/QQ 内置浏览器 WebView）
+function unsupportedMsg() {
+  const ua = navigator.userAgent;
+  if (/MicroMessenger/i.test(ua)) return '当前微信内置浏览器不支持语音朗读，请点右上角「⋯」→「在浏览器打开」，用 Chrome / Safari 收听。';
+  if (/QQ\//i.test(ua)) return '当前 QQ 内置浏览器不支持语音朗读，请点右上角「⋯」→「在浏览器打开」后收听。';
+  return '当前浏览器不支持语音朗读，请用 Chrome / Edge / Safari 打开。';
+}
 if (window.pdfjsLib) {
   try { window.pdfjsLib.GlobalWorkerOptions.workerSrc = './vendor/pdf.worker.min.js'; } catch (e) {}
 }
@@ -148,7 +155,7 @@ function speakCurrent() {
 }
 
 function startPlayback(fromIdx) {
-  if (!synth) { showPlayerNote('当前浏览器不支持语音朗读，请用 Chrome / Edge / Safari 打开。', true); return; }
+  if (!synth) { showPlayerNote(unsupportedMsg(), true); return; }
   player.idx = (fromIdx != null) ? fromIdx : (player.idx || 0);
   player.state = 'playing';
   updatePlayBtn(); renderCurrent();
@@ -270,12 +277,13 @@ async function toggleRecord(idx, btn) {
   mediaRecorder.onstop = async () => {
     const blob = new Blob(recChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
     await dbPut({ id: player.item.id + '#' + idx, itemId: player.item.id, idx, blob, createdAt: Date.now() }, STORE_REC);
+    player.recMap[idx] = blob; // 保留到内存，重新渲染也能听
     if (recStream) { recStream.getTracks().forEach(t => t.stop()); recStream = null; }
     mediaRecorder = null; recIdx = -1;
     const play = el.transcript.querySelector('.s-play[data-idx="' + idx + '"]');
-    if (play) { play.hidden = false; }
+    if (play) { play.hidden = false; play._blob = blob; } // 关键：绑定录音数据，否则点 ▶ 没反应
     btn.classList.remove('recording'); btn.textContent = '🎤';
-    showHint('录音已保存，点 ▶ 听自己背的，和原文对照～', false);
+    showPlayerNote('录音已保存，点这句末尾的 ▶ 听自己背的，和原文对照～', false);
   };
   mediaRecorder.start();
   btn.classList.add('recording'); btn.textContent = '🔴';
