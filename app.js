@@ -154,7 +154,38 @@ function speakCurrent() {
   }
 }
 
+/* 双轨：原生 SpeechSynthesis 优先；不支持的浏览器（vivo/夸克等）走后端 TTS 音频 */
+const SERVER_MODE = !synth;
+const audioEl = new Audio();
+const TTS_ENDPOINT = ''; // ← 部署时替换为 https://你的域名:8443/tts
+audioEl.onended = () => {
+  if (player.state !== 'playing') return;
+  if (player.loop) { serverSpeak(player.idx); return; }
+  player.idx++;
+  if (player.idx < player.sentences.length) { renderCurrent(); serverSpeak(player.idx); }
+  else finishPlayback();
+};
+audioEl.onerror = () => {
+  if (player.state === 'playing') showPlayerNote('音频加载失败：TTS 服务未启动或网络不通，请检查部署。', true);
+};
+function serverSpeak(idx) {
+  if (!TTS_ENDPOINT) { showPlayerNote('未配置 TTS 服务地址（TTS_ENDPOINT 为空）。', true); return; }
+  if (player.state === 'playing') logListen(player.item.id, player.item.title);
+  const url = TTS_ENDPOINT + '?text=' + encodeURIComponent(player.sentences[idx]) + '&rate=' + player.rate;
+  try { audioEl.src = url; } catch (e) {}
+  const p = audioEl.play();
+  if (p && p.catch) p.catch(e => showPlayerNote('音频播放被拒绝：' + (e && e.message || e), true));
+}
+
 function startPlayback(fromIdx) {
+  if (SERVER_MODE) {
+    if (!TTS_ENDPOINT) { showPlayerNote('未配置 TTS 服务地址。', true); return; }
+    player.idx = (fromIdx != null) ? fromIdx : (player.idx || 0);
+    player.state = 'playing'; updatePlayBtn(); renderCurrent();
+    try { audioEl.pause(); } catch (e) {}
+    serverSpeak(player.idx);
+    return;
+  }
   if (!synth) { showPlayerNote(unsupportedMsg(), true); return; }
   player.idx = (fromIdx != null) ? fromIdx : (player.idx || 0);
   player.state = 'playing';
@@ -168,15 +199,21 @@ function startPlayback(fromIdx) {
   }
 }
 function pausePlayback() {
-  if (player.state === 'playing' && synth) {
+  if (player.state !== 'playing') return;
+  if (SERVER_MODE) { try { audioEl.pause(); } catch (e) {} player.state = 'paused'; updatePlayBtn(); }
+  else if (synth) {
     if (isIOS) { try { synth.cancel(); } catch (e) {} } // iOS 的 pause/resume 不可靠，改用取消+重读
     else synth.pause();
     player.state = 'paused'; updatePlayBtn();
   }
 }
 function resumePlayback() {
-  if (player.state === 'paused' && synth) {
-    player.state = 'playing'; updatePlayBtn();
+  if (player.state !== 'paused') return;
+  player.state = 'playing'; updatePlayBtn();
+  if (SERVER_MODE) {
+    if (!audioEl.src) serverSpeak(player.idx);
+    else audioEl.play().catch(() => serverSpeak(player.idx));
+  } else if (synth) {
     if (isIOS) speakCurrent(); // 重新朗读当前句（从头）
     else synth.resume();
   }
@@ -187,7 +224,8 @@ function togglePlay() {
   else startPlayback(0);
 }
 function finishPlayback() {
-  if (synth) synth.cancel();
+  if (SERVER_MODE) { try { audioEl.pause(); audioEl.removeAttribute('src'); audioEl.load(); } catch (e) {} }
+  else if (synth) synth.cancel();
   player.state = 'idle'; player.idx = 0; updatePlayBtn(); renderCurrent();
 }
 function replayCurrent() { if (player.sentences.length) startPlayback(player.idx); } // 重读当前句
