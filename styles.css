@@ -261,16 +261,16 @@ html, body {
 .sentence.current { background: var(--accent-soft); color: var(--ink); border-left-color: var(--accent); font-weight: 500; }
 .s-text { flex: 1; }
 .s-tools {
-  display: inline-flex; align-items: center; gap: 4px; opacity: 0; transition: opacity .15s ease; flex: none;
+  display: inline-flex; align-items: center; gap: 6px; opacity: 1; transition: opacity .15s ease; flex: none;
 }
 .sentence:hover .s-tools, .sentence.current .s-tools { opacity: 1; }
 .s-rec, .s-play, .s-done {
   border: none; background: var(--accent-tint); color: var(--accent-deep);
-  width: 30px; height: 30px; border-radius: 50%; font-size: 13px; cursor: pointer;
-  display: grid; place-items: center; transition: transform .12s ease;
+  width: 32px; height: 32px; border-radius: 50%; font-size: 14px; cursor: pointer;
+  display: grid; place-items: center; transition: transform .12s ease, background .12s ease;
 }
 .s-rec:active, .s-play:active, .s-done:active { transform: scale(0.9); }
-.s-rec.recording { background: #E23B2E; color: #fff; }
+.s-rec.recording { background: #E23B2E; color: #fff; width: auto; min-width: 32px; padding: 0 10px; border-radius: 16px; font-size: 12px; }
 .s-play { background: var(--accent); color: #fff; }
 .s-done.done { background: #2FA36B; color: #fff; }
 

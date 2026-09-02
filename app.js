@@ -321,10 +321,11 @@ async function toggleRecord(idx, btn) {
     const play = el.transcript.querySelector('.s-play[data-idx="' + idx + '"]');
     if (play) { play.hidden = false; play._blob = blob; } // 关键：绑定录音数据，否则点 ▶ 没反应
     btn.classList.remove('recording'); btn.textContent = '🎤';
-    showPlayerNote('录音已保存，点这句末尾的 ▶ 听自己背的，和原文对照～', false);
+    showPlayerNote('✅ 录音已保存！点这句末尾紫色「▶」按钮，就能听自己背的、和原文对照～', false);
   };
   mediaRecorder.start();
-  btn.classList.add('recording'); btn.textContent = '🔴';
+  btn.classList.add('recording'); btn.textContent = '停止';
+  showPlayerNote('🔴 录音中… 再点一次这个红色「停止」按钮即可结束录音', false);
 }
 function playOwn(btn) {
   if (!btn._url && btn._blob) btn._url = URL.createObjectURL(btn._blob);
