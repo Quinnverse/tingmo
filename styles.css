@@ -208,6 +208,13 @@ html, body {
 .hero-glyph { font-family: "Noto Serif SC", serif; font-weight: 600; font-size: 64px; color: #fff; }
 .player-sub { margin-top: 16px; font-size: 14px; color: var(--ink-2); letter-spacing: .5px; }
 
+.player-note {
+  margin: 2px 24px 0; padding: 10px 14px; border-radius: 12px;
+  background: var(--accent-tint); color: var(--accent-deep);
+  font-size: 13px; line-height: 1.5; border: 1px solid var(--accent-soft);
+}
+.player-note.error { background: #FFF1F0; color: #C0392B; border-color: #FAD7D2; }
+
 .progress-wrap { padding: 4px 28px 0; }
 .progress-bar { position: relative; height: 6px; background: var(--line); border-radius: 999px; cursor: pointer; }
 .progress-fill {

@@ -79,13 +79,24 @@ function splitSentences(text) {
 
 /* ---------------- TTS ---------------- */
 const synth = window.speechSynthesis;
+// iOS 对 Web Speech API 限制最多：首次 speak 易被丢、pause/resume 失效、静音键会静音
+const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
+  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 let zhVoice = null;
-function loadVoices() {
-  if (!synth) return;
+// 每次播放前都重新挑一次中文嗓音：移动端 getVoices() 常延迟加载，缓存一次会拿到空
+function pickZhVoice() {
+  if (!synth) return null;
   const voices = synth.getVoices();
-  zhVoice = voices.find(v => /^(zh|cmn|zh-CN|zh-TW)/i.test(v.lang) || /中文|普通话|国语|Chinese/i.test(v.name)) || null;
+  if (!voices.length) return null;
+  return voices.find(v => /^(zh|cmn|zh-CN|zh-TW)/i.test(v.lang) || /中文|普通话|国语|Chinese/i.test(v.name)) || null;
 }
-if (synth) { loadVoices(); synth.onvoiceschanged = loadVoices; }
+function loadVoices() { zhVoice = pickZhVoice(); }
+if (synth) {
+  loadVoices();
+  synth.onvoiceschanged = loadVoices;
+  setTimeout(loadVoices, 300);   // 移动端首次常为空，延迟再取
+  setTimeout(loadVoices, 1500);
+}
 if (window.pdfjsLib) {
   try { window.pdfjsLib.GlobalWorkerOptions.workerSrc = './vendor/pdf.worker.min.js'; } catch (e) {}
 }
@@ -98,7 +109,7 @@ const player = {
 function buildUtterance(text) {
   const u = new SpeechSynthesisUtterance(text);
   u.lang = 'zh-CN'; u.rate = player.rate;
-  if (zhVoice) u.voice = zhVoice;
+  const v = pickZhVoice() || zhVoice; if (v) u.voice = v;
   return u;
 }
 
@@ -106,6 +117,8 @@ function speakCurrent() {
   if (!synth || player.idx < 0 || player.idx >= player.sentences.length) return;
   if (player.state === 'playing') logListen(player.item.id, player.item.title); // 记一句
   const u = buildUtterance(player.sentences[player.idx]);
+  let started = false;
+  u.onstart = () => { started = true; hidePlayerNote(); };
   u.onend = () => {
     if (player.state !== 'playing') return;
     if (player.loop) { speakCurrent(); return; }
@@ -113,22 +126,53 @@ function speakCurrent() {
     if (player.idx < player.sentences.length) { renderCurrent(); speakCurrent(); }
     else finishPlayback();
   };
-  u.onerror = (e) => { if (e.error !== 'interrupted') console.warn('TTS error:', e.error); };
+  u.onerror = (e) => {
+    if (e.error === 'interrupted') return; // 主动切句/暂停，非故障
+    console.warn('TTS error:', e.error);
+    if (e.error === 'not-allowed' || e.error === 'audio-busy')
+      showPlayerNote('朗读被系统拦截，请再点一次播放试试。', true);
+    else if (e.error === 'synthesis-failed' || e.error === 'text-too-long')
+      showPlayerNote('该句朗读失败：可能未安装中文语音包。可在手机「设置 → 语言与输入法 → 文字转语音(TTS)」中安装中文语音后重试。', true);
+    else
+      showPlayerNote('朗读出错（' + (e.error || '未知') + '），换句或重试点播放试试。', true);
+  };
   synth.speak(u);
+  // iOS 兜底：若 1.2s 还没出声，多半是静音键 / 未授权，给提示
+  if (isIOS) {
+    setTimeout(() => {
+      if (player.state !== 'playing') return;
+      if (started || synth.speaking || synth.pending) return; // 其实在播，不打扰
+      showPlayerNote('iPhone 没出声？请确认：① 侧边静音键已关闭；② 再点一次播放。iOS 对网页朗读较敏感。', true);
+    }, 1200);
+  }
 }
 
 function startPlayback(fromIdx) {
-  if (!synth) { showHint('当前浏览器不支持语音朗读，请用 Chrome / Edge / Safari 打开。', true); return; }
-  synth.cancel();
+  if (!synth) { showPlayerNote('当前浏览器不支持语音朗读，请用 Chrome / Edge / Safari 打开。', true); return; }
   player.idx = (fromIdx != null) ? fromIdx : (player.idx || 0);
   player.state = 'playing';
-  updatePlayBtn(); renderCurrent(); speakCurrent();
+  updatePlayBtn(); renderCurrent();
+  // iOS 大坑：cancel 后立刻 speak 会被丢弃；首次播放本就没在播，绝不取消，直接 speak
+  if (synth.speaking || synth.pending) {
+    try { synth.cancel(); } catch (e) {}
+    setTimeout(speakCurrent, isIOS ? 80 : 30); // 等一拍再读，移动端更稳
+  } else {
+    speakCurrent();
+  }
 }
 function pausePlayback() {
-  if (player.state === 'playing' && synth) { synth.pause(); player.state = 'paused'; updatePlayBtn(); }
+  if (player.state === 'playing' && synth) {
+    if (isIOS) { try { synth.cancel(); } catch (e) {} } // iOS 的 pause/resume 不可靠，改用取消+重读
+    else synth.pause();
+    player.state = 'paused'; updatePlayBtn();
+  }
 }
 function resumePlayback() {
-  if (player.state === 'paused' && synth) { synth.resume(); player.state = 'playing'; updatePlayBtn(); }
+  if (player.state === 'paused' && synth) {
+    player.state = 'playing'; updatePlayBtn();
+    if (isIOS) speakCurrent(); // 重新朗读当前句（从头）
+    else synth.resume();
+  }
 }
 function togglePlay() {
   if (player.state === 'playing') pausePlayback();
@@ -256,6 +300,7 @@ const el = {
   importTitle: $('import-title'), importText: $('import-text'), importFile: $('import-file'), importHint: $('import-hint'),
   playerTitle: $('player-title'), playerSub: $('player-sub'),
   progressBar: $('progress-bar'), progressFill: $('progress-fill'), transcript: $('transcript'), playBtn: $('btn-play'),
+  playerNote: $('player-note'),
 };
 function showView(name) { Object.values(views).forEach(v => v.hidden = true); views[name].hidden = false; window.scrollTo(0, 0); }
 
@@ -337,6 +382,10 @@ async function openPlayer(item) {
   player.recMap = {};
   for (const r of recs) if (r.itemId === item.id) player.recMap[r.idx] = r.blob;
   renderTranscript(); renderCurrent(); updatePlayBtn(); showView('player');
+  hidePlayerNote();
+  if (isIOS && !pickZhVoice()) {
+    showPlayerNote('iPhone 使用提示：首次朗读请保持未静音；若没声音，再点一次播放即可。', false);
+  }
 }
 function renderTranscript() {
   el.transcript.innerHTML = '';
@@ -375,6 +424,13 @@ function showHint(msg, isError) {
   el.importHint.hidden = false; el.importHint.textContent = msg;
   el.importHint.style.color = isError ? 'var(--accent-deep)' : 'var(--ink-2)';
 }
+/* 播放器内的状态/错误提示条 */
+function showPlayerNote(msg, isError) {
+  if (!el.playerNote) return;
+  el.playerNote.hidden = false; el.playerNote.textContent = msg;
+  el.playerNote.classList.toggle('error', !!isError);
+}
+function hidePlayerNote() { if (el.playerNote) el.playerNote.hidden = true; }
 async function parsePDF(file) {
   const buf = await file.arrayBuffer();
   const pdf = await window.pdfjsLib.getDocument({ data: buf }).promise;
