@@ -25,21 +25,27 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-VOICE = os.getenv("TTS_VOICE", "zh-CN-XiaoxiaoNeural")
+ZH_VOICE = os.getenv("TTS_ZH_VOICE", os.getenv("TTS_VOICE", "zh-CN-XiaoxiaoNeural"))
+EN_VOICE = os.getenv("TTS_EN_VOICE", "en-US-JennyNeural")
 
 
 @app.get("/health")
 def health():
-    return {"ok": True, "engine": "edge-tts", "voice": VOICE}
+    return {"ok": True, "engine": "edge-tts", "voices": {"zh-CN": ZH_VOICE, "en-US": EN_VOICE}}
 
 
 @app.get("/tts")
-async def tts(text: str = Query(..., min_length=1, max_length=2000), rate: float = 1.0):
+async def tts(
+    text: str = Query(..., min_length=1, max_length=2000),
+    rate: float = 1.0,
+    lang: str = Query("zh-CN", pattern="^(zh-CN|en-US)$"),
+):
     rate = max(0.5, min(2.0, rate))
     pct = int(round((rate - 1) * 100))
     rate_str = f"{'+' if pct >= 0 else ''}{pct}%"
     try:
-        comm = edge_tts.Communicate(text, VOICE, rate=rate_str)
+        voice = EN_VOICE if lang == "en-US" else ZH_VOICE
+        comm = edge_tts.Communicate(text, voice, rate=rate_str)
         audio = b""
         async for chunk in comm.stream():
             if chunk["type"] == "audio":

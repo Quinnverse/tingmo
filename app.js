@@ -71,7 +71,8 @@ function escapeHTML(s) {
 function splitSentences(text) {
   const raw = (text || '').replace(/\r\n/g, '\n').trim();
   if (!raw) return [];
-  const parts = raw.split(/(?<=[。！？!?；;…\n])/);
+  // 中文标点直接分句；英文句点仅在后接空白或文本结束时分句，避免拆开 1.5、3.14 等小数。
+  const parts = raw.split(/(?<=[。！？!?；;…\n])|(?<=\.)(?=\s+|$)/);
   const out = [];
   for (const p of parts) { const t = p.trim(); if (t) out.push(t); }
   return out.length ? out : [raw];
@@ -83,14 +84,39 @@ const synth = window.speechSynthesis;
 const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
   (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 let zhVoice = null;
-// 每次播放前都重新挑一次中文嗓音：移动端 getVoices() 常延迟加载，缓存一次会拿到空
+let enVoice = null;
+function normalizeLang(lang) { return (lang || '').replace('_', '-').toLowerCase(); }
+function isCantoneseVoice(v) {
+  const lang = normalizeLang(v.lang);
+  return lang.startsWith('zh-hk') || lang.startsWith('yue') || /粤|廣東|广东|cantonese|sinji/i.test(v.name || '');
+}
+// 严格优先大陆普通话，避免 iPad 按系统顺序误选粤语或台湾国语。
 function pickZhVoice() {
   if (!synth) return null;
   const voices = synth.getVoices();
   if (!voices.length) return null;
-  return voices.find(v => /^(zh|cmn|zh-CN|zh-TW)/i.test(v.lang) || /中文|普通话|国语|Chinese/i.test(v.name)) || null;
+  const usable = voices.filter(v => !isCantoneseVoice(v));
+  return usable.find(v => normalizeLang(v.lang) === 'zh-cn')
+    || usable.find(v => /^(cmn-hans-cn|cmn-cn)$/i.test(normalizeLang(v.lang)))
+    || usable.find(v => /tingting|普通话|mandarin.*china|chinese.*china/i.test(v.name || ''))
+    || usable.find(v => /^(zh|cmn)/i.test(normalizeLang(v.lang)))
+    || null;
 }
-function loadVoices() { zhVoice = pickZhVoice(); }
+function pickEnVoice() {
+  if (!synth) return null;
+  const voices = synth.getVoices();
+  if (!voices.length) return null;
+  return voices.find(v => normalizeLang(v.lang) === 'en-us')
+    || voices.find(v => /^en-(gb|au|ca)$/i.test(normalizeLang(v.lang)))
+    || voices.find(v => /^en/i.test(normalizeLang(v.lang)))
+    || null;
+}
+function detectSpeechLang(text) {
+  const cjk = ((text || '').match(/[\u3400-\u9fff]/g) || []).length;
+  const latin = ((text || '').match(/[A-Za-z]/g) || []).length;
+  return latin > cjk ? 'en-US' : 'zh-CN';
+}
+function loadVoices() { zhVoice = pickZhVoice(); enVoice = pickEnVoice(); }
 if (synth) {
   loadVoices();
   synth.onvoiceschanged = loadVoices;
@@ -115,8 +141,10 @@ const player = {
 
 function buildUtterance(text) {
   const u = new SpeechSynthesisUtterance(text);
-  u.lang = 'zh-CN'; u.rate = player.rate;
-  const v = pickZhVoice() || zhVoice; if (v) u.voice = v;
+  const lang = detectSpeechLang(text);
+  u.lang = lang; u.rate = player.rate;
+  const v = lang === 'en-US' ? (pickEnVoice() || enVoice) : (pickZhVoice() || zhVoice);
+  if (v) u.voice = v;
   return u;
 }
 
@@ -171,7 +199,8 @@ audioEl.onerror = () => {
 function serverSpeak(idx) {
   if (!TTS_ENDPOINT) { showPlayerNote('未配置 TTS 服务地址（TTS_ENDPOINT 为空）。', true); return; }
   if (player.state === 'playing') logListen(player.item.id, player.item.title);
-  const url = TTS_ENDPOINT + '?text=' + encodeURIComponent(player.sentences[idx]) + '&rate=' + player.rate;
+  const lang = detectSpeechLang(player.sentences[idx]);
+  const url = TTS_ENDPOINT + '?text=' + encodeURIComponent(player.sentences[idx]) + '&rate=' + player.rate + '&lang=' + encodeURIComponent(lang);
   try { audioEl.src = url; } catch (e) {}
   const p = audioEl.play();
   if (p && p.catch) p.catch(e => showPlayerNote('音频播放被拒绝：' + (e && e.message || e), true));
@@ -501,6 +530,19 @@ async function parseDOCX(file) {
   const res = await window.mammoth.extractRawText({ arrayBuffer: buf });
   return res.value;
 }
+async function parseImage(file) {
+  if (!window.Tesseract) throw new Error('图片识别组件加载失败，请检查网络后重试');
+  const result = await window.Tesseract.recognize(file, 'chi_sim+eng', {
+    workerPath: './vendor/tesseract-worker.min.js',
+    corePath: './vendor/',
+    langPath: './vendor/tessdata',
+    logger: (m) => {
+      if (m.status !== 'recognizing text') return;
+      showHint('正在识别图片文字… ' + Math.round((m.progress || 0) * 100) + '%', false);
+    },
+  });
+  return result && result.data ? result.data.text : '';
+}
 async function saveAndPlay() {
   const title = el.importTitle.value.trim();
   const text = el.importText.value.trim();
@@ -523,9 +565,10 @@ el.importFile.addEventListener('change', async (e) => {
     if (ext === 'txt' || ext === 'md' || ext === 'markdown') text = await file.text();
     else if (ext === 'pdf') { if (!window.pdfjsLib) throw new Error('PDF 解析库未加载'); text = await parsePDF(file); }
     else if (ext === 'docx') { if (!window.mammoth) throw new Error('Word 解析库未加载'); text = await parseDOCX(file); }
-    else throw new Error('暂不支持该格式，请用 .txt / .md / .pdf / .docx');
+    else if (file.type.startsWith('image/') || ['png', 'jpg', 'jpeg', 'webp', 'bmp'].includes(ext)) text = await parseImage(file);
+    else throw new Error('暂不支持该格式，请用文字、PDF、Word 或图片文件');
     text = text.trim();
-    if (!text) throw new Error('没提取到文字，可能文件是图片扫描版（暂不支持）');
+    if (!text) throw new Error('没识别到文字，请换一张更清晰、方向正确的图片');
     el.importText.value = text;
     if (!el.importTitle.value.trim()) el.importTitle.value = file.name.replace(/\.[^.]+$/, '');
     showHint('解析成功，共 ' + splitSentences(text).length + ' 句，可以保存了～', false);

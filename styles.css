@@ -215,7 +215,16 @@ html, body {
 }
 .player-note.error { background: #FFF1F0; color: #C0392B; border-color: #FAD7D2; }
 
-.progress-wrap { padding: 4px 28px 0; }
+.player-dock {
+  position: sticky; bottom: 0; z-index: 20;
+  margin-top: auto; padding: 10px 18px calc(10px + env(safe-area-inset-bottom));
+  background: rgba(255, 255, 255, 0.94);
+  border-top: 1px solid var(--line);
+  box-shadow: 0 -10px 28px rgba(31, 27, 46, 0.08);
+  backdrop-filter: saturate(160%) blur(16px);
+  -webkit-backdrop-filter: saturate(160%) blur(16px);
+}
+.progress-wrap { padding: 0 10px; }
 .progress-bar { position: relative; height: 6px; background: var(--line); border-radius: 999px; cursor: pointer; }
 .progress-fill {
   position: absolute; left: 0; top: 0; height: 100%; width: 0%;
@@ -223,7 +232,7 @@ html, body {
   border-radius: 999px; transition: width .25s ease;
 }
 
-.controls { display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; padding: 22px 20px 8px; }
+.controls { display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; padding: 10px 20px 4px; }
 .ctrl-btn {
   width: 46px; height: 46px; border-radius: 50%; border: 1px solid var(--line);
   background: var(--surface); color: var(--ink-2); font-size: 16px; cursor: pointer;
@@ -249,7 +258,7 @@ html, body {
 
 /* 文稿 */
 .transcript {
-  flex: 1; padding: 18px 24px 60px; position: relative;
+  flex: 1; padding: 18px 24px 28px; position: relative;
   font-family: "Noto Serif SC", "Songti SC", serif; font-size: 18px; line-height: 2.0; color: var(--ink-2);
 }
 .sentence {
@@ -275,7 +284,8 @@ html, body {
 .s-done.done { background: #2FA36B; color: #fff; }
 
 /* 单句循环 chip */
-.player-toolbar { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 10px; padding: 4px 20px 6px; }
+.player-toolbar { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; padding: 2px 10px 0; }
+.player-dock .speed-group { width: auto; margin-top: 0; }
 .chip-toggle {
   border: 1px solid var(--line); background: var(--surface); color: var(--ink-2);
   font-size: 13px; font-weight: 500; padding: 7px 13px; border-radius: 999px; cursor: pointer; transition: all .15s ease;
@@ -313,7 +323,10 @@ html, body {
   .hero-glyph { font-size: 56px; }
   .transcript { font-size: 17px; line-height: 1.95; }
   .controls { gap: 10px; }
-  .ctrl-play { width: 62px; height: 62px; font-size: 24px; }
+  .player-dock { padding: 8px 10px calc(8px + env(safe-area-inset-bottom)); }
+  .ctrl-btn { width: 40px; height: 40px; }
+  .ctrl-play { width: 54px; height: 54px; font-size: 22px; }
+  .speed-btn { padding: 5px 9px; }
   .stat-num { font-size: 22px; }
   .s-tools { opacity: 1; }
 }

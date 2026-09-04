@@ -101,7 +101,7 @@
         <div class="import-actions">
           <label class="btn-ghost file-label">
             📄 导入文件
-            <input id="import-file" type="file" accept=".txt,.md,.markdown,.pdf,.docx,text/plain" hidden />
+            <input id="import-file" type="file" accept=".txt,.md,.markdown,.pdf,.docx,.png,.jpg,.jpeg,.webp,.bmp,text/plain,image/*" hidden />
           </label>
           <button id="btn-save" class="btn-primary">保存并开始听 →</button>
         </div>
@@ -148,41 +148,42 @@
         <div id="player-sub" class="player-sub">— 句 / — 句</div>
       </div>
 
-      <div class="progress-wrap">
-        <div id="progress-bar" class="progress-bar">
-          <div id="progress-fill" class="progress-fill"></div>
-        </div>
-      </div>
-
       <div id="player-note" class="player-note" hidden></div>
-
-      <div class="controls">
-        <button id="btn-prev" class="ctrl-btn" title="上一句">⏮</button>
-        <button id="btn-play" class="ctrl-play" title="播放 / 暂停">▶</button>
-        <button id="btn-next" class="ctrl-btn" title="下一句">⏭</button>
-        <button id="btn-replay" class="ctrl-btn" title="重读当前句">↺</button>
-      </div>
-
-      <div class="player-toolbar">
-        <div class="speed-group" id="speed-group">
-          <button class="speed-btn" data-rate="0.75">0.75×</button>
-          <button class="speed-btn active" data-rate="1">1×</button>
-          <button class="speed-btn" data-rate="1.25">1.25×</button>
-          <button class="speed-btn" data-rate="1.5">1.5×</button>
-          <button class="speed-btn" data-rate="2">2×</button>
-        </div>
-        <button id="btn-loop" class="chip-toggle" title="单句循环">🔁 单句循环</button>
-      </div>
 
       <p class="transcript-tip">点任意句子可跳转 · 每句末尾可 🎤 录背 / ▶ 回放 / ○ 标记会了</p>
 
       <div id="transcript" class="transcript"></div>
+
+      <div class="player-dock" aria-label="播放控制">
+        <div class="progress-wrap">
+          <div id="progress-bar" class="progress-bar">
+            <div id="progress-fill" class="progress-fill"></div>
+          </div>
+        </div>
+        <div class="controls">
+          <button id="btn-prev" class="ctrl-btn" title="上一句">⏮</button>
+          <button id="btn-play" class="ctrl-play" title="播放 / 暂停">▶</button>
+          <button id="btn-next" class="ctrl-btn" title="下一句">⏭</button>
+          <button id="btn-replay" class="ctrl-btn" title="重读当前句">↺</button>
+        </div>
+        <div class="player-toolbar">
+          <div class="speed-group" id="speed-group">
+            <button class="speed-btn" data-rate="0.75">0.75×</button>
+            <button class="speed-btn active" data-rate="1">1×</button>
+            <button class="speed-btn" data-rate="1.25">1.25×</button>
+            <button class="speed-btn" data-rate="1.5">1.5×</button>
+            <button class="speed-btn" data-rate="2">2×</button>
+          </div>
+          <button id="btn-loop" class="chip-toggle" title="单句循环">🔁 单句循环</button>
+        </div>
+      </div>
     </section>
 
   </div>
 
   <script src="./vendor/pdf.min.js"></script>
   <script src="./vendor/mammoth.browser.min.js"></script>
+  <script src="./vendor/tesseract.min.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>
